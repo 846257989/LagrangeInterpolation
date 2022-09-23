@@ -10,7 +10,7 @@ public class Demo {
     //替换数字用
     static final Pattern GET_X = Pattern.compile("(.*)(x\\^.*)");
 
-    static final Pattern TEMP = Pattern.compile("(-\\d+|\\d+)(/)(\\d+)(.*)");
+    static final Pattern TEMP = Pattern.compile("(.*)(/)(\\d+)(.*)");
 
     static final Pattern SB = Pattern.compile(".*/\\d+");
 
@@ -44,33 +44,42 @@ public class Demo {
             int t = i;
             while (t < next) {
                 if (sb.length() == 0) {
-                    Matcher m1 = TEMP.matcher(sbList.get(t));
-                    if (m1.matches()) {
-                        Matcher m2 = TEMP.matcher(sbList.get(t + 1));
-                        //上面是分母，下面是分子
-                        int b = Integer.parseInt(m1.group(1));
-                        int a = Integer.parseInt(m1.group(3));
-                        if (m2.matches()) {
-                            int d = Integer.parseInt(m2.group(1));
-                            int c = Integer.parseInt(m2.group(3));
-                            sb.append(b * c + a * d).append("/").append(a * c);
-                            t++;
+                    //分子不为1时
+                    if (sbList.get(t).lastIndexOf("/") != -1) {
+                        Matcher m1 = TEMP.matcher(sbList.get(t));
+                        if (m1.matches()) {
+                            Matcher m2 = TEMP.matcher(sbList.get(t + 1));
+                            //上面是分母，下面是分子
+                            int b = Integer.parseInt(m1.group(1));
+                            int a = Integer.parseInt(m1.group(3));
+                            if (m2.matches()) {
+                                int d = Integer.parseInt(m2.group(1));
+                                int c = Integer.parseInt(m2.group(3));
+                                //  b/a + d/c = bc+ad / ac
+                                sb.append(b * c + a * d).append("/").append(a * c);
+                                t++;
+                            }
                         }
+                    } else {
+                        //为整数，且sb中无任何值，直接添加
+                        sb.append(getCoefficient(sb.toString()));
                     }
                 } else {
-                    Matcher m1 = TEMP.matcher(sbList.get(t));
-                    if (m1.matches()) {
-                        int d = Integer.parseInt(m1.group(1));
-                        int c = Integer.parseInt(m1.group(3));
-                        Matcher m2 = TEMP.matcher(sb);
-                        if (m2.matches()) {
-                            int b = Integer.parseInt(m2.group(1));
-                            int a = Integer.parseInt(m2.group(3));
-                            sb = new StringBuilder(sb.toString().replaceFirst(SB.pattern(), b * c + a * d + "/" + a * c));
+                    //分子不为1
+                    if (sb.lastIndexOf("/") != -1) {
+                        Matcher m1 = TEMP.matcher(sbList.get(t));
+                        if (m1.matches()) {
+                            int d = Integer.parseInt(m1.group(1));
+                            int c = Integer.parseInt(m1.group(3));
+                            Matcher m2 = TEMP.matcher(sb);
+                            if (m2.matches()) {
+                                int b = Integer.parseInt(m2.group(1));
+                                int a = Integer.parseInt(m2.group(3));
+                                sb = new StringBuilder(sb.toString().replaceFirst(SB.pattern(), b * c + a * d + "/" + a * c));
+                            }
                         }
-                    }else {
-                        System.out.println(sbList.get(t));
-                        System.out.println("奥里给");
+                    } else {
+
                     }
                 }
                 t++;

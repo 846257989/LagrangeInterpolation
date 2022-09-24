@@ -21,12 +21,13 @@ public class Demo {
         for (int i = 0; i < arr.length; i++) {
             String[] test = test(i + 1, arr.length);
             String[] merge = merge(test, arr[i]);
+            System.out.println((i + 1) + ":原式除以分子且乘以系数：" + Arrays.toString(merge));
             for (int j = 0; j < merge.length; j++) {
                 sbList.add(new StringBuilder(merge[j]));
             }
         }
         List<StringBuilder> stringBuilders = sortConcatList(sbList);
-        System.out.println(sbList);
+        System.out.println("按幂次排序：" + stringBuilders);
         test(sbList);
     }
 
@@ -43,8 +44,9 @@ public class Demo {
             }
             int t = i;
             while (t < next) {
+                //sb中为空时，就是没有基数，要添加基数
                 if (sb.length() == 0) {
-                    //分子不为1时
+                    //基数为分数时
                     if (sbList.get(t).lastIndexOf("/") != -1) {
                         Matcher m1 = TEMP.matcher(sbList.get(t));
                         if (m1.matches()) {
@@ -62,24 +64,68 @@ public class Demo {
                         }
                     } else {
                         //为整数，且sb中无任何值，直接添加
-                        sb.append(getCoefficient(sb.toString()));
+                        sb.append(getCoefficient(sbList.get(t).toString()));
                     }
-                } else {
-                    //分子不为1
+                }
+                //sb不为空，说明有基数
+                else {
+                    //基数为分数时
                     if (sb.lastIndexOf("/") != -1) {
-                        Matcher m1 = TEMP.matcher(sbList.get(t));
-                        if (m1.matches()) {
-                            int d = Integer.parseInt(m1.group(1));
-                            int c = Integer.parseInt(m1.group(3));
-                            Matcher m2 = TEMP.matcher(sb);
-                            if (m2.matches()) {
-                                int b = Integer.parseInt(m2.group(1));
-                                int a = Integer.parseInt(m2.group(3));
-                                sb = new StringBuilder(sb.toString().replaceFirst(SB.pattern(), b * c + a * d + "/" + a * c));
+                        //加数为分数时
+                        if (sbList.get(t).lastIndexOf("/") != -1) {
+                            Matcher m1 = TEMP.matcher(sb);
+                            if (m1.matches()) {
+                                int b = Integer.parseInt(m1.group(1));
+                                int a = Integer.parseInt(m1.group(3));
+                                Matcher m2 = TEMP.matcher(sbList.get(t));
+                                if (m2.matches()) {
+                                    int d = Integer.parseInt(m2.group(1));
+                                    int c = Integer.parseInt(m2.group(3));
+                                    int b1 = b * c + a * d;
+                                    int b2 = a * c;
+                                    int z = getMaxCommonFactor(b1, b2);
+                                    if (z < 0) z *= -1;
+                                    sb = new StringBuilder().append(b1 / z).append('/').append(b2 / z);
+                                }
+                            }
+                        } else {
+                            //加数不是分数时
+                            if (sbList.get(t).lastIndexOf("x") != -1) {
+                                Matcher m1 = TEMP.matcher(sb);
+                                if (m1.matches()) {
+                                    int b = Integer.parseInt(m1.group(1));
+                                    int a = Integer.parseInt(m1.group(3));
+                                    int d = getCoefficient(sbList.get(t).toString());
+                                    int b1 = b + a * d;
+                                    int z = getMaxCommonFactor(b1, a);
+                                    if (z < 0) z *= -1;
+                                    sb = new StringBuilder().append(b1 / z).append('/').append(a / z);
+                                }
                             }
                         }
                     } else {
-
+                        //基数不是分数时且是关于x的单项式
+                        if (sb.lastIndexOf("x") != -1) {
+                            if (sbList.get(t).lastIndexOf("/") != -1) {
+                                //加数为分数时
+                                Matcher m1 = TEMP.matcher(sbList.get(t));
+                                if (m1.matches()) {
+                                    int b = getCoefficient(sb.toString());
+                                    int d = Integer.parseInt(m1.group(1));
+                                    int c = Integer.parseInt(m1.group(3));
+                                    int b1 = b * c + d;
+                                    int z = getMaxCommonFactor(b1, c);
+                                    if (z < 0) z *= -1;
+                                    sb = new StringBuilder().append(b1 / z).append('/').append(c / z);
+                                }
+                            } else {
+                                //加数不是分数时
+                                sb = new StringBuilder().append(getCoefficient(sbList.get(t).toString()) + getCoefficient(sb.toString()));
+                            }
+                        } else {
+                            //基数不是分数时且仅为常数
+                            sb = new StringBuilder().append(getCoefficient(sbList.get(t).toString()) + getCoefficient(sb.toString()));
+                        }
                     }
                 }
                 t++;
@@ -206,25 +252,30 @@ public class Demo {
         StringBuilder sb = new StringBuilder();
         //对系数乘以一个系数再次化简
         for (int i = 0; i < coefficientArr.length; i++) {
-            //最大公约数
-            int z = getMaxCommonFactor(coefficientArr[i], x);
-            if (z < 0) z = -z;
+            //让最大公约数保证符号只与x有关
+            int z = getMaxCommonFactor(coefficientArr[i] > 0 ? coefficientArr[i] : -coefficientArr[i], x);
             String xFactor = getXFactor(resultEquations[i]);
             if (coefficientArr[i] % x == 0) {
+                //能整除时，不需要管正负号
                 sb.append(coefficientArr[i] / z);
             } else {
-                if (coefficientArr[i] < 0 && x < 0) {
-                    //系数 <0 x<0 那么整体>0
-                    sb.append(-coefficientArr[i] / z).append('/').append(-x / z);
-                } else if (coefficientArr[i] > 0 && x > 0) {
-                    //信息署 > 0 x >0 整体 > 0
-                    sb.append(coefficientArr[i] / z).append('/').append(x / z);
-                } else {
+                if (z < 0) {
+                    z = -z;
+                    //说明x<0
                     if (coefficientArr[i] > 0) {
-                        //系数>0 x<0 整体<0
+                        //分母的常数项>0 整体<0
                         sb.append('-').append(coefficientArr[i] / z).append('/').append(-x / z);
                     } else {
-                        //系数<0 x>0 整体<0
+                        //整体>0
+                        sb.append(-coefficientArr[i] / z).append('/').append(-x / z);
+                    }
+                } else {
+                    //说明x>0
+                    if (coefficientArr[i] > 0) {
+                        //分母的常数项>0 整体>0
+                        sb.append(coefficientArr[i] / z).append('/').append(x / z);
+                    } else {
+                        //整体<0
                         sb.append('-').append(-coefficientArr[i] / z).append('/').append(x / z);
                     }
                 }
@@ -238,9 +289,13 @@ public class Demo {
     }
 
     static String[] test(int y, int length) {
+        //生成含有分母部分的式子List
         List<List<String>> denominatorList = createDenominator(y, length);
-        //获取最终的多项式
+        System.out.println(y + ":创建的分母部分：" + denominatorList);
+        //化简式变换成原式
         String[] resultEquations = handleEquations(denominatorList);
+        System.out.println(y + ":化简式变回式：" + Arrays.toString(resultEquations));
+        //返回原式除以分母的式子
         return mergeLikeTern(resultEquations, y);
     }
 
@@ -266,13 +321,15 @@ public class Demo {
      * @return 最大公因数
      */
     static int getMaxCommonFactor(int x1, int x2) {
+        int state = 1;
+        if (x2 < 0) state *= -1;
         int temp = x1 % x2;
         while (temp != 0) {
             x1 = x2;
             x2 = temp;
             temp = x1 % x2;
         }
-        return x2;
+        return Math.abs(x2) * state;
     }
 
     /**

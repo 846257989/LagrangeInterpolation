@@ -19,28 +19,31 @@ public class Demo {
     static final Pattern AOLIGEI = Pattern.compile("(.*)(/)(.*)");
 
     public static void main(String[] args) {
-        int[] arr = {1, 2, 3, 4, 114514};
+        int[] arr = {1, 2, 3, 4, 5201314};
         List<StringBuilder> sbList = new ArrayList<>();
+        //进行所有式子整合到一个List中
         for (int i = 0; i < arr.length; i++) {
             //合并同类相后没有*yi的式子
-            String[] test = test(i + 1, arr.length);
+            String[] noMultiplyCoefficientEquation = test(i + 1, arr.length);
             //返回乘上系数的多项式
-            String[] merge = multiplyCoefficient(test, arr[i]);
-            for (String s : merge) {
+            String[] multiplyCoefficientEquation = multiplyCoefficient(noMultiplyCoefficientEquation, arr[i]);
+            for (String s : multiplyCoefficientEquation) {
                 sbList.add(new StringBuilder(s));
             }
         }
+        ///按幂次排序
         List<StringBuilder> sortList = sortList(sbList);
-        //合并同类项
-        String[] testB = testB(sortList, arr.length);
+        //合并所有方程同类项
+        String[] testB = mergeAllLikeTerms(sortList, arr.length);
         //方程形式打印
         printEquation(testB);
     }
 
     /**
      * 带入X计算多项式
+     *
      * @param multinomial 多项式
-     * @param t yi
+     * @param t           yi
      */
     static void testC(String[] multinomial, int t) {
         StringBuilder sum = new StringBuilder();
@@ -139,9 +142,10 @@ public class Demo {
 
     /**
      * 化简分子分母
+     *
      * @param x1 分子
      * @param x2 分母
-     * @param z 最大公因数
+     * @param z  最大公因数
      * @return 分数的最简形式
      */
     static StringBuilder testD(int x1, int x2, int z) {
@@ -168,11 +172,12 @@ public class Demo {
 
     /**
      * 合并同类项
-     * @param sbList 排序好的未合并的多项式
-     * @param outLength  输出数组长度
+     *
+     * @param sbList    排序好的未合并的多项式
+     * @param outLength 输出数组长度
      * @return 合并同类项后的字符数组
      */
-    static String[] testB(List<StringBuilder> sbList, int outLength) {
+    static String[] mergeAllLikeTerms(List<StringBuilder> sbList, int outLength) {
         int next = 1;
         StringBuilder sb = new StringBuilder();
         String[] outArr = new String[outLength];
@@ -290,10 +295,10 @@ public class Demo {
      */
     static List<List<String>> createMoleculePart(int bitValue, int length) {
         //用于返回的零时List
-        List<List<String>> list = new ArrayList<>();
+        List<List<String>> list = new ArrayList<>(length - 1);
         for (int i = 1; i <= length; i++) {
-            List<String> temp = new ArrayList<>();
             if (i == bitValue) continue;
+            List<String> temp = new ArrayList<>(2);
             temp.add("x^1");
             temp.add(String.valueOf(-i));
             list.add(temp);
@@ -308,31 +313,36 @@ public class Demo {
      * @return 没化简的数集合
      */
     static String[] unfoldBasePart(List<List<String>> list) {
-        String[] firstHandle = new String[0];
+        //用于输出的Arr
+        String[] outArr = new String[0];
         for (int i = 0; i < list.size(); i++) {
             List<List<String>> tempList = new ArrayList<>(2);
             if (i == 0) {
+                //首先提取两个式子，例如(x - 1) (x - 2)进行计算
                 tempList.add(list.get(0));
                 tempList.add(list.get(1));
+                //这里一次性读取两个式子，要多加1
                 i++;
             } else {
                 //这个临时的List是拿来算从第三个化简式起步的
                 List<String> t = new ArrayList<>();
-                Collections.addAll(t, firstHandle);
+                Collections.addAll(t, outArr);
                 tempList.add(t);
                 tempList.add(list.get(i));
                 //多次计算重复返回，获得最终展开式子
             }
-            firstHandle = getEquation(tempList);
+            //计算方程
+            outArr = getEquation(tempList);
         }
-        return firstHandle;
+        return outArr;
     }
 
 
     /**
      * 将多项式方程*yi
+     *
      * @param resultEquations 多项式方程
-     * @param value yi
+     * @param value           yi
      * @return 乘上系数后的多项式方程
      */
     static String[] multiplyCoefficient(String[] resultEquations, int value) {
@@ -378,8 +388,8 @@ public class Demo {
     /**
      * 展开式除以分母（系数）
      *
-     * @param resultEquations  分子部分展开式
-     * @param bitValue        当前yi的值
+     * @param resultEquations 分子部分展开式
+     * @param bitValue        当前位的值
      * @return 展开式除以分母后进行拆分的单项式集合（已经化简）
      */
     static String[] divideDenominator(String[] resultEquations, int bitValue) {
@@ -436,13 +446,13 @@ public class Demo {
         return returnArr;
     }
 
-    static String[] test(int y, int length) {
+    static String[] test(int bitValue, int length) {
         //生成分子部分，每一个List<String>存放对应x-i的单项式集合
-        List<List<String>> denominatorList = createMoleculePart(y, length);
-        //将分子部分展开
+        List<List<String>> denominatorList = createMoleculePart(bitValue, length);
+        //将分子部分展开并合并同类项
         String[] resultEquations = unfoldBasePart(denominatorList);
         //返回展开式除以分母且合并同类项的式子
-        return divideDenominator(resultEquations, y);
+        return divideDenominator(resultEquations, bitValue);
     }
 
     /**
@@ -485,32 +495,26 @@ public class Demo {
      * @return 多项式的数组集合
      */
     static String[] getEquation(List<List<String>> list) {
-        //用于幂次map的List
+        //存放每个多项式中，各个单项式的X的幂次的映射
         List<Map<Integer, Integer>> mapList = new ArrayList<>(list.size());
-        //将字符串分割成数字
-        int[] splitArr = splitCoefficient(list, mapList);
-        //进行系数计算后的数组长度
+        //提取每个单项式的系数，并依次存放，这里还处理了幂次的映射问题
+        int[] baseCoefficient = getCoefficientAndPowerMap(list, mapList);
+        //每个多项式经过系数计算后的放入一个数组的总长度（两个多项式相乘，这里用系数计算，后面会拼接上未知数）
         int coefficientCalculateArrLength = 1;
         for (int i = 0; i < list.size(); i++) {
+            //因为是两个式子相乘，所以总长就是每个式子的成绩
             coefficientCalculateArrLength *= list.get(i).size();
         }
-//        System.out.println("splitArr:" + Arrays.toString(splitArr));
-        //系数计算
-        int[] coefficientCalculateArr = coefficientCalculate(splitArr, coefficientCalculateArrLength);
-//        System.out.println("coefficientCalculateArr:" + Arrays.toString(coefficientCalculateArr));
-        //用于拼接x及幂次的存放集合
+        //多项式系数计算后的方程，里面都存放的都是系数，用于下一步拼接未知数x
+        int[] coefficientCalculateArr = coefficientCalculate(baseCoefficient, coefficientCalculateArrLength);
+        //用于存放拼接未知数x的集合
         List<StringBuilder> concatList = new ArrayList<>(coefficientCalculateArrLength);
-        //拼接系数和X
+        //拼接系数和X，返回的是合并同类项后的数组长度
         int equationArrLength = concatCoefficientXFactor(concatList, coefficientCalculateArr, mapList);
-//        System.out.println("concatList:" + concatList);
         //按幂次进行排序
         List<StringBuilder> sortConcatList = sortList(concatList);
-//        System.out.println("sortConcatList:" + sortConcatList);
-        //合并同类相
+        //合并同类项
         String[] equationArr = uniteSimilarTerms(sortConcatList, equationArrLength);
-//        System.out.println("equationArr:" + Arrays.toString(equationArr));
-        //以方程的形式打印
-//        printEquation(equationArr);
         return equationArr;
     }
 
@@ -551,53 +555,67 @@ public class Demo {
      * @param mapList  幂次映射存放Map
      * @return 提取系数后的数组
      */
-    static int[] splitCoefficient(List<List<String>> baseList, List<Map<Integer, Integer>> mapList) {
+    static int[] getCoefficientAndPowerMap(List<List<String>> baseList, List<Map<Integer, Integer>> mapList) {
+        //输出数组的大小
         int arrLength = 0;
         for (int i = 0; i < baseList.size(); i++) {
+            //输出数组的大小就是每个小List的元素大小之和
             arrLength += baseList.get(i).size();
-            mapList.add(new HashMap<Integer, Integer>());
+            //添加Map
+            mapList.add(new HashMap<>());
         }
-        int[] splitArr = new int[arrLength];
-        //用于添加元素进数组
+        //输出数组，里面的元素就是List中提取的系数，并且是按顺序的
+        int[] baseCoefficient = new int[arrLength];
+        //用于遍历baseCoefficient
         int temp = 0;
-        //嵌套循环将数组提取并放入数组中
         for (int i = 0; i < baseList.size(); i++) {
             for (int j = 0; j < baseList.get(i).size(); j++) {
-                setPowerMap(j, baseList.get(i).get(j), mapList.get(i));
-                splitArr[temp++] = getCoefficient(baseList.get(i).get(j));
+                //提取字符串，因为下面两个都用到了
+                String s = baseList.get(i).get(j);
+                //设置幂次映射
+                setPowerMap(j, s, mapList.get(i));
+                //提取系数放入输出数组中
+                baseCoefficient[temp++] = getCoefficient(s);
             }
         }
-        return splitArr;
+        return baseCoefficient;
     }
 
     /**
-     * 系数计算
+     * 两个多项式式子计算
      *
-     * @param baseArr 没有经过计算的原系数数组
-     * @param length  处理后的数组长度
-     * @return 经过计算处理的数组
+     * @param baseCoefficient 没有经过计算的原系数数组
+     * @param length          系数计算后存放数组的长度
+     * @return 经过计算后的数组
      */
-    static int[] coefficientCalculate(int[] baseArr, int length) {
+    static int[] coefficientCalculate(int[] baseCoefficient, int length) {
         int[] coefficientCalculateArr = new int[length];
-        int step = baseArr.length - 2;
-        //进行相乘操作，简言之就是后一半的第一个元素开始，乘以前一半的所有元素，然后从后一半的第二个开始相乘，以此类推
+        //计算后规定，后一项多项式只能有两项单项式，而输出的数组是合并后的，所以要减去2当，后两个就是乘数，前面的数都是被乘数
+        int step = baseCoefficient.length - 2;
+        //end就是第二个List的第一个系数的下标
         int end = length - step;
+        //start从0开始，就是第一个List的第一个系数开始的下标
         int start = 0;
+        //用于数组
         int index = 0;
         while (end < length) {
+            //第二个List的第一个系数，乘上第一个List的所有系数
             while (start < length - step) {
-                coefficientCalculateArr[index++] = baseArr[end] * baseArr[start++];
+                coefficientCalculateArr[index++] = baseCoefficient[end] * baseCoefficient[start++];
             }
+            //第二个弟一个List乘完之后，开始向后移一个
             end++;
             if (end == length) {
                 break;
             }
+            //将第一个List的下标归零，继续相乘
             start = 0;
             while (start < length - step) {
-                coefficientCalculateArr[index++] = baseArr[end] * baseArr[start++];
+                coefficientCalculateArr[index++] = baseCoefficient[end] * baseCoefficient[start++];
             }
+            //下面以及后面以此类推
             end++;
-            if (end == baseArr.length) {
+            if (end == baseCoefficient.length) {
                 break;
             }
             start = 0;
@@ -611,19 +629,23 @@ public class Demo {
      * @param concatCoefficientXFactorList 用于存放拼接系数和x的List
      * @param coefficientCalculateArr      系数经过计算后的Arr
      * @param powerMapList                 存放单项此幂次视图的List
-     * @return uniteSimilarTermsLength
+     * @return uniteSimilarTermsLength 合并同类项后数组的长度
      */
     static int concatCoefficientXFactor(List<StringBuilder> concatCoefficientXFactorList, int[] coefficientCalculateArr, List<Map<Integer, Integer>> powerMapList) {
         int temp = 0;
         //用于判断合并同类相后剩余元素个数的set集合
         Set<Integer> tempSet = new HashSet<>();
-        //连接X及幂次的操作
+        //连接X及幂次的操作,这里只有两个Map，所以直接用数表示了
         for (Integer o2 : powerMapList.get(1).keySet()) {
             for (Integer o1 : powerMapList.get(0).keySet()) {
+                //提取后面多项式的第一个幂
                 int x1 = powerMapList.get(1).get(o2);
+                //地区前面多项式的第一个幂
                 int x2 = powerMapList.get(0).get(o1);
+                //相加
                 int sum = x1 + x2;
                 tempSet.add(sum);
+                //存放进数组中
                 if (sum != 0) {
                     concatCoefficientXFactorList.add(new StringBuilder(String.valueOf(coefficientCalculateArr[temp++])).append("x^").append(sum));
                 } else {
@@ -668,10 +690,12 @@ public class Demo {
         for (int i = 0; i < sortConcatList.size(); i++) {
             //获取第一个x的幂次
             int base = getNum(sortConcatList.get(i));
+            //计算到下一个幂次的下标
             while (next != sortConcatList.size() && base == getNum(sortConcatList.get(next))) {
                 next++;
             }
             int t = i;
+            //同幂次进行相加
             while (t < next) {
                 if (sb.length() == 0) {
                     sb.append(getCoefficient(sortConcatList.get(t).toString()));
@@ -682,14 +706,15 @@ public class Demo {
                 }
                 t++;
             }
-            if (base != 0 && base != 1) {
+            //如果幂次不为0时
+            if (base != 0) {
                 sb.append("x^").append(base);
-            } else if (base == 1) {
-                sb.append("x^1");
             }
             outArr[temp++] = sb.toString();
             sb.delete(0, sb.length());
+            //同幂次的计算后，将开始的下标推到下一个幂次的起始下标-1，因为for循环还有i++
             i = next - 1;
+            //下一个的下一个幂次的下标开始就是i+1了，因为上面还会计算到下一个次幂的下标
             next = i + 1;
         }
         return outArr;
@@ -744,9 +769,9 @@ public class Demo {
     /**
      * 提取x的幂次到一个map中
      *
-     * @param index x存在的下标
+     * @param index 当前的下标
      * @param str   被解析的字符串
-     * @param map   以x下标为键，以x的幂次为值
+     * @param map   以当前的下标为键，以x的幂次为值
      */
     static void setPowerMap(int index, String str, Map<Integer, Integer> map) {
         //先判断带X且系数不为1

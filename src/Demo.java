@@ -14,27 +14,168 @@ public class Demo {
 
     static final Pattern SB = Pattern.compile(".*/\\d+");
 
+    static final Pattern TEST = Pattern.compile("(.*)(/)(.*)(x\\^.*)");
+
+    static final Pattern AOLIGEI = Pattern.compile("(.*)(/)(.*)");
 
     public static void main(String[] args) {
         int[] arr = {1, 2, 3, 4, 114514};
         List<StringBuilder> sbList = new ArrayList<>();
         for (int i = 0; i < arr.length; i++) {
+            //合并同类相后没有*yi的式子
             String[] test = test(i + 1, arr.length);
-            String[] merge = merge(test, arr[i]);
-            System.out.println((i + 1) + ":原式除以分子且乘以系数：" + Arrays.toString(merge));
-            for (int j = 0; j < merge.length; j++) {
-                sbList.add(new StringBuilder(merge[j]));
+            //返回乘上系数的多项式
+            String[] merge = multiplyCoefficient(test, arr[i]);
+            for (String s : merge) {
+                sbList.add(new StringBuilder(s));
             }
         }
-        List<StringBuilder> stringBuilders = sortConcatList(sbList);
-        System.out.println("按幂次排序：" + stringBuilders);
-        test(sbList);
+        List<StringBuilder> sortList = sortList(sbList);
+        //合并同类项
+        String[] testB = testB(sortList, arr.length);
+        //方程形式打印
+        printEquation(testB);
     }
 
-    static void test(List<StringBuilder> sbList) {
+    /**
+     * 带入X计算多项式
+     * @param multinomial 多项式
+     * @param t yi
+     */
+    static void testC(String[] multinomial, int t) {
+        StringBuilder sum = new StringBuilder();
+        String[] arr = new String[multinomial.length];
+        //用于判断基数是分数还是整数,0为整数，1为分数
+        int state = 0;
+        //基数的power
+        int basePower;
+        //当前的power
+        int currentPower = multinomial.length - 1;
+        for (int i = 0; i < multinomial.length; i++) {
+            basePower = currentPower;
+            currentPower = getNum(new StringBuilder(multinomial[i]));
+            if (i == 0) {
+                //进行首次赋值
+                if (multinomial[i].lastIndexOf("/") != -1) {
+                    //分数
+                    Matcher m1 = TEST.matcher(multinomial[i]);
+                    if (m1.matches()) {
+                        int b = Integer.parseInt(m1.group(1));
+                        int a = Integer.parseInt(m1.group(3));
+                        sum.append(b).append('/').append(a);
+                        state = 1;
+                    }
+                } else {
+                    //整数
+                    sum.append(getCoefficient(multinomial[i]));
+                }
+            } else {
+                if (state == 1) {
+                    //基数为分数时
+                    if (multinomial[i].lastIndexOf("/") != -1) {
+                        //加数为分数时
+                        Matcher m1 = TEST.matcher(multinomial[i]);
+                        if (m1.matches()) {
+                            //提取加数分子分母
+                            int d = Integer.parseInt(m1.group(1));
+                            d *= Math.pow(t, currentPower);
+                            int c = Integer.parseInt(m1.group(3));
+                            Matcher m2 = AOLIGEI.matcher(sum);
+                            if (m2.matches()) {
+                                //提取基数分子分母
+                                int b = Integer.parseInt(m2.group(1));
+                                b *= Math.pow(t, basePower);
+                                int a = Integer.parseInt(m2.group(3));
+                                int x1 = b * c + a * d;
+                                int x2 = a * c;
+                                int z = getMaxCommonFactor(x1 > 0 ? x1 : -x1, x2);
+                                sum = testD(x1, x2, z);
+                            }
+                        }
+                    } else {
+                        //加数为整数时
+                        Matcher m1 = AOLIGEI.matcher(sum);
+                        if (m1.matches()) {
+                            int b = Integer.parseInt(m1.group(1));
+                            int a = Integer.parseInt(m1.group(3));
+                            int d = getCoefficient(multinomial[i]);
+                            b *= Math.pow(t, basePower);
+                            d *= Math.pow(t, currentPower);
+                            int x1 = b + a * d;
+                            int z = getMaxCommonFactor(x1, a);
+                            sum = testD(x1, a, z);
+                        }
+                    }
+                } else {
+                    //基数为整数时
+                    if (multinomial[i].lastIndexOf("/") != -1) {
+                        //加数为分数时
+                        Matcher m1 = TEST.matcher(multinomial[i]);
+                        if (m1.matches()) {
+                            int d = Integer.parseInt(m1.group(1));
+                            int c = Integer.parseInt(m1.group(3));
+                            d *= Math.pow(t, currentPower);
+                            int b = Integer.parseInt(sum.toString());
+                            b *= Math.pow(t, basePower);
+                            int x2 = b * c + d;
+                            int z = getMaxCommonFactor(b, x2);
+                            sum = testD(b, x2, z);
+                            state = 1;
+                        }
+                    } else {
+                        //加数为整数时
+                        int b = Integer.parseInt(multinomial[i]);
+                        b *= Math.pow(t, currentPower);
+                        int a = Integer.parseInt(sum.toString());
+                        a *= Math.pow(t, basePower);
+                        sum = new StringBuilder().append(a + b);
+                        state = 0;
+                    }
+                }
+            }
+            System.out.println(sum);
+        }
+    }
+
+    /**
+     * 化简分子分母
+     * @param x1 分子
+     * @param x2 分母
+     * @param z 最大公因数
+     * @return 分数的最简形式
+     */
+    static StringBuilder testD(int x1, int x2, int z) {
+        if (z > 0) {
+            //x2 > 0
+            if (x1 > 0) {
+                //整体>0
+                return new StringBuilder().append(x1 / z).append('-').append(x2 / z);
+            } else {
+                //整体<0
+                return new StringBuilder().append('-').append(-x1 / z).append('-').append(x2 / z);
+            }
+        } else {
+            //x2 < 0
+            if (x1 > 0) {
+                //整体<0
+                return new StringBuilder().append('-').append(x1 / z).append('-').append(-x2 / z);
+            } else {
+                //整体>0
+                return new StringBuilder().append(x1 / z).append('-').append(-x2 / z);
+            }
+        }
+    }
+
+    /**
+     * 合并同类项
+     * @param sbList 排序好的未合并的多项式
+     * @param outLength  输出数组长度
+     * @return 合并同类项后的字符数组
+     */
+    static String[] testB(List<StringBuilder> sbList, int outLength) {
         int next = 1;
         StringBuilder sb = new StringBuilder();
-        String[] outArr = new String[5];
+        String[] outArr = new String[outLength];
         int temp = 0;
         for (int i = 0; i < sbList.size(); i++) {
             //获取第一个x的幂次
@@ -130,24 +271,25 @@ public class Demo {
                 }
                 t++;
             }
+            if (base != 0) sb.append("x^").append(base);
             outArr[temp++] = sb.toString();
             sb.delete(0, sb.length());
             i = next - 1;
             next = i + 1;
         }
-        System.out.println(Arrays.toString(outArr));
+        return outArr;
     }
 
 
     /**
-     * 生成拉格朗日插值公式分母部分
+     * 生成拉格朗日插值公式分子部分
      *
      * @param bitValue yi 对应的值
      * @param length   y的总数
      * @return 带有分母部分的List
      */
-    static List<List<String>> createDenominator(int bitValue, int length) {
-        //将拉格朗日插值插值展开的分母写入List
+    static List<List<String>> createMoleculePart(int bitValue, int length) {
+        //用于返回的零时List
         List<List<String>> list = new ArrayList<>();
         for (int i = 1; i <= length; i++) {
             List<String> temp = new ArrayList<>();
@@ -165,7 +307,7 @@ public class Demo {
      * @param list 单项式List
      * @return 没化简的数集合
      */
-    static String[] handleEquations(List<List<String>> list) {
+    static String[] unfoldBasePart(List<List<String>> list) {
         String[] firstHandle = new String[0];
         for (int i = 0; i < list.size(); i++) {
             List<List<String>> tempList = new ArrayList<>(2);
@@ -187,7 +329,13 @@ public class Demo {
     }
 
 
-    static String[] merge(String[] resultEquations, int value) {
+    /**
+     * 将多项式方程*yi
+     * @param resultEquations 多项式方程
+     * @param value yi
+     * @return 乘上系数后的多项式方程
+     */
+    static String[] multiplyCoefficient(String[] resultEquations, int value) {
         if (value == 1)
             return resultEquations;
         //用于返回的数组
@@ -228,13 +376,13 @@ public class Demo {
     }
 
     /**
-     * 合并同类项
+     * 展开式除以分母（系数）
      *
-     * @param resultEquations 无化简的多项式Array
+     * @param resultEquations  分子部分展开式
      * @param bitValue        当前yi的值
-     * @return 合并同类相后的Array
+     * @return 展开式除以分母后进行拆分的单项式集合（已经化简）
      */
-    static String[] mergeLikeTern(String[] resultEquations, int bitValue) {
+    static String[] divideDenominator(String[] resultEquations, int bitValue) {
         //x存放部分拉格朗日插值公式展开的分母
         int x = 1;
         //计算X
@@ -289,14 +437,12 @@ public class Demo {
     }
 
     static String[] test(int y, int length) {
-        //生成含有分母部分的式子List
-        List<List<String>> denominatorList = createDenominator(y, length);
-        System.out.println(y + ":创建的分母部分：" + denominatorList);
-        //化简式变换成原式
-        String[] resultEquations = handleEquations(denominatorList);
-        System.out.println(y + ":化简式变回式：" + Arrays.toString(resultEquations));
-        //返回原式除以分母的式子
-        return mergeLikeTern(resultEquations, y);
+        //生成分子部分，每一个List<String>存放对应x-i的单项式集合
+        List<List<String>> denominatorList = createMoleculePart(y, length);
+        //将分子部分展开
+        String[] resultEquations = unfoldBasePart(denominatorList);
+        //返回展开式除以分母且合并同类项的式子
+        return divideDenominator(resultEquations, y);
     }
 
     /**
@@ -358,7 +504,7 @@ public class Demo {
         int equationArrLength = concatCoefficientXFactor(concatList, coefficientCalculateArr, mapList);
 //        System.out.println("concatList:" + concatList);
         //按幂次进行排序
-        List<StringBuilder> sortConcatList = sortConcatList(concatList);
+        List<StringBuilder> sortConcatList = sortList(concatList);
 //        System.out.println("sortConcatList:" + sortConcatList);
         //合并同类相
         String[] equationArr = uniteSimilarTerms(sortConcatList, equationArrLength);
@@ -576,7 +722,7 @@ public class Demo {
      * @param list concatList
      * @return 幂次从大到小的List
      */
-    static List<StringBuilder> sortConcatList(List<StringBuilder> list) {
+    static List<StringBuilder> sortList(List<StringBuilder> list) {
         list.sort((o1, o2) -> {
             if (o1.lastIndexOf("x") > 0) {
                 //有幂次进行判断
@@ -638,8 +784,6 @@ public class Demo {
         //没有带X，直接返回数字
         return Integer.parseInt(str);
     }
-
-
 }
 
 

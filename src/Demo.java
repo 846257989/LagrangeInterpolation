@@ -19,6 +19,7 @@ public class Demo {
     static final Pattern AOLIGEI = Pattern.compile("(.*)(/)(.*)");
 
     public static void main(String[] args) {
+        System.out.println("更新测试");
         int[] arr = {1, 2, 3, 4, 5201314};
         List<StringBuilder> sbList = new ArrayList<>();
         //进行所有式子整合到一个List中

@@ -3,8 +3,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Demo {
-    //带有X幂次且系数不为1
-    static final Pattern EXISTS_X = Pattern.compile("(.*[\\d+])(x\\^)(\\d+)");
+    //可提取系数,X,幂次
+    static final Pattern GET_COEFFICIENT_X_POWER = Pattern.compile("(.*[\\d+])(x\\^)(\\d+)");
     //带X系数为1的
     static final Pattern NUM_EQ_ONE = Pattern.compile("(x\\^)(\\d+)");
     //替换数字用
@@ -39,252 +39,141 @@ public class Demo {
         printEquation(testB);
     }
 
-    /**
-     * 带入X计算多项式
-     *
-     * @param multinomial 多项式
-     * @param t           yi
-     */
-    static void testC(String[] multinomial, int t) {
-        StringBuilder sum = new StringBuilder();
-        String[] arr = new String[multinomial.length];
-        //用于判断基数是分数还是整数,0为整数，1为分数
-        int state = 0;
-        //基数的power
-        int basePower;
-        //当前的power
-        int currentPower = multinomial.length - 1;
-        for (int i = 0; i < multinomial.length; i++) {
-            basePower = currentPower;
-            currentPower = getNum(new StringBuilder(multinomial[i]));
-            if (i == 0) {
-                //进行首次赋值
-                if (multinomial[i].lastIndexOf("/") != -1) {
-                    //分数
-                    Matcher m1 = TEST.matcher(multinomial[i]);
-                    if (m1.matches()) {
-                        int b = Integer.parseInt(m1.group(1));
-                        int a = Integer.parseInt(m1.group(3));
-                        sum.append(b).append('/').append(a);
-                        state = 1;
-                    }
-                } else {
-                    //整数
-                    sum.append(getCoefficient(multinomial[i]));
-                }
-            } else {
-                if (state == 1) {
-                    //基数为分数时
-                    if (multinomial[i].lastIndexOf("/") != -1) {
-                        //加数为分数时
-                        Matcher m1 = TEST.matcher(multinomial[i]);
-                        if (m1.matches()) {
-                            //提取加数分子分母
-                            int d = Integer.parseInt(m1.group(1));
-                            d *= Math.pow(t, currentPower);
-                            int c = Integer.parseInt(m1.group(3));
-                            Matcher m2 = AOLIGEI.matcher(sum);
-                            if (m2.matches()) {
-                                //提取基数分子分母
-                                int b = Integer.parseInt(m2.group(1));
-                                b *= Math.pow(t, basePower);
-                                int a = Integer.parseInt(m2.group(3));
-                                int x1 = b * c + a * d;
-                                int x2 = a * c;
-                                int z = getMaxCommonFactor(x1 > 0 ? x1 : -x1, x2);
-                                sum = testD(x1, x2, z);
-                            }
-                        }
-                    } else {
-                        //加数为整数时
-                        Matcher m1 = AOLIGEI.matcher(sum);
-                        if (m1.matches()) {
-                            int b = Integer.parseInt(m1.group(1));
-                            int a = Integer.parseInt(m1.group(3));
-                            int d = getCoefficient(multinomial[i]);
-                            b *= Math.pow(t, basePower);
-                            d *= Math.pow(t, currentPower);
-                            int x1 = b + a * d;
-                            int z = getMaxCommonFactor(x1, a);
-                            sum = testD(x1, a, z);
-                        }
-                    }
-                } else {
-                    //基数为整数时
-                    if (multinomial[i].lastIndexOf("/") != -1) {
-                        //加数为分数时
-                        Matcher m1 = TEST.matcher(multinomial[i]);
-                        if (m1.matches()) {
-                            int d = Integer.parseInt(m1.group(1));
-                            int c = Integer.parseInt(m1.group(3));
-                            d *= Math.pow(t, currentPower);
-                            int b = Integer.parseInt(sum.toString());
-                            b *= Math.pow(t, basePower);
-                            int x2 = b * c + d;
-                            int z = getMaxCommonFactor(b, x2);
-                            sum = testD(b, x2, z);
-                            state = 1;
-                        }
-                    } else {
-                        //加数为整数时
-                        int b = Integer.parseInt(multinomial[i]);
-                        b *= Math.pow(t, currentPower);
-                        int a = Integer.parseInt(sum.toString());
-                        a *= Math.pow(t, basePower);
-                        sum = new StringBuilder().append(a + b);
-                        state = 0;
-                    }
-                }
-            }
-            System.out.println(sum);
-        }
-    }
-
-    /**
-     * 化简分子分母
-     *
-     * @param x1 分子
-     * @param x2 分母
-     * @param z  最大公因数
-     * @return 分数的最简形式
-     */
-    static StringBuilder testD(int x1, int x2, int z) {
-        if (z > 0) {
-            //x2 > 0
-            if (x1 > 0) {
-                //整体>0
-                return new StringBuilder().append(x1 / z).append('-').append(x2 / z);
-            } else {
-                //整体<0
-                return new StringBuilder().append('-').append(-x1 / z).append('-').append(x2 / z);
-            }
-        } else {
-            //x2 < 0
-            if (x1 > 0) {
-                //整体<0
-                return new StringBuilder().append('-').append(x1 / z).append('-').append(-x2 / z);
-            } else {
-                //整体>0
-                return new StringBuilder().append(x1 / z).append('-').append(-x2 / z);
-            }
-        }
-    }
 
     /**
      * 合并同类项
      *
      * @param sbList    排序好的未合并的多项式
      * @param outLength 输出数组长度
-     * @return 合并同类项后的字符数组
+     * @return 合并同类项后的字符串数组
      */
     static String[] mergeAllLikeTerms(List<StringBuilder> sbList, int outLength) {
         int next = 1;
-        StringBuilder sb = new StringBuilder();
+        //合并某一次幂次后的临时变量
+        StringBuilder mergeTemp = new StringBuilder();
+        //输出数组
         String[] outArr = new String[outLength];
         int temp = 0;
         for (int i = 0; i < sbList.size(); i++) {
             //获取第一个x的幂次
-            int base = getNum(sbList.get(i));
-            while (next != sbList.size() && base == getNum(sbList.get(next))) {
+            int power = getNum(sbList.get(i));
+            while (next != sbList.size() && power == getNum(sbList.get(next))) {
                 next++;
             }
             int t = i;
-            while (t < next) {
-                //sb中为空时，就是没有基数，要添加基数
-                if (sb.length() == 0) {
-                    //基数为分数时
-                    if (sbList.get(t).lastIndexOf("/") != -1) {
-                        Matcher m1 = TEMP.matcher(sbList.get(t));
-                        if (m1.matches()) {
-                            Matcher m2 = TEMP.matcher(sbList.get(t + 1));
-                            //上面是分母，下面是分子
-                            int b = Integer.parseInt(m1.group(1));
-                            int a = Integer.parseInt(m1.group(3));
-                            if (m2.matches()) {
-                                int d = Integer.parseInt(m2.group(1));
-                                int c = Integer.parseInt(m2.group(3));
-                                //  b/a + d/c = bc+ad / ac
-                                sb.append(b * c + a * d).append("/").append(a * c);
-                                t++;
-                            }
-                        }
-                    } else {
-                        //为整数，且sb中无任何值，直接添加
-                        sb.append(getCoefficient(sbList.get(t).toString()));
-                    }
-                }
-                //sb不为空，说明有基数
-                else {
-                    //基数为分数时
-                    if (sb.lastIndexOf("/") != -1) {
-                        //加数为分数时
-                        if (sbList.get(t).lastIndexOf("/") != -1) {
-                            Matcher m1 = TEMP.matcher(sb);
-                            if (m1.matches()) {
-                                int b = Integer.parseInt(m1.group(1));
-                                int a = Integer.parseInt(m1.group(3));
-                                Matcher m2 = TEMP.matcher(sbList.get(t));
-                                if (m2.matches()) {
-                                    int d = Integer.parseInt(m2.group(1));
-                                    int c = Integer.parseInt(m2.group(3));
-                                    int b1 = b * c + a * d;
-                                    int b2 = a * c;
-                                    int z = getMaxCommonFactor(b1, b2);
-                                    if (z < 0) z *= -1;
-                                    sb = new StringBuilder().append(b1 / z).append('/').append(b2 / z);
-                                }
-                            }
-                        } else {
-                            //加数不是分数时
-                            if (sbList.get(t).lastIndexOf("x") != -1) {
-                                Matcher m1 = TEMP.matcher(sb);
-                                if (m1.matches()) {
-                                    int b = Integer.parseInt(m1.group(1));
-                                    int a = Integer.parseInt(m1.group(3));
-                                    int d = getCoefficient(sbList.get(t).toString());
-                                    int b1 = b + a * d;
-                                    int z = getMaxCommonFactor(b1, a);
-                                    if (z < 0) z *= -1;
-                                    sb = new StringBuilder().append(b1 / z).append('/').append(a / z);
-                                }
-                            }
-                        }
-                    } else {
-                        //基数不是分数时且是关于x的单项式
-                        if (sb.lastIndexOf("x") != -1) {
-                            if (sbList.get(t).lastIndexOf("/") != -1) {
-                                //加数为分数时
-                                Matcher m1 = TEMP.matcher(sbList.get(t));
-                                if (m1.matches()) {
-                                    int b = getCoefficient(sb.toString());
-                                    int d = Integer.parseInt(m1.group(1));
-                                    int c = Integer.parseInt(m1.group(3));
-                                    int b1 = b * c + d;
-                                    int z = getMaxCommonFactor(b1, c);
-                                    if (z < 0) z *= -1;
-                                    sb = new StringBuilder().append(b1 / z).append('/').append(c / z);
-                                }
-                            } else {
-                                //加数不是分数时
-                                sb = new StringBuilder().append(getCoefficient(sbList.get(t).toString()) + getCoefficient(sb.toString()));
-                            }
-                        } else {
-                            //基数不是分数时且仅为常数
-                            sb = new StringBuilder().append(getCoefficient(sbList.get(t).toString()) + getCoefficient(sb.toString()));
-                        }
-                    }
-                }
-                t++;
-            }
-            if (base != 0) sb.append("x^").append(base);
-            outArr[temp++] = sb.toString();
-            sb.delete(0, sb.length());
+            //计算合并后的字符串
+            mergeTemp = calculateGrade(t, sbList, next, mergeTemp);
+            //如果幂次不为0，则添加未知数x
+            if (power != 0) mergeTemp.append("x^").append(power);
+            outArr[temp++] = mergeTemp.toString();
+            mergeTemp.delete(0, mergeTemp.length());
+            //当前幂次的下标-1，因为i还要+1
             i = next - 1;
+            //当前幂次+1，下一次循环继续计算到当前循环的下一个最后的下标
             next = i + 1;
         }
         return outArr;
     }
 
+    /**
+     * 分数计算
+     *
+     * @param index  当前幂次的起始下标
+     * @param sbList 多项式集合
+     * @param end    下个幂次的首下标
+     * @param sb     计算好的某幂次项式
+     * @return sb
+     */
+    static StringBuilder calculateGrade(int index, List<StringBuilder> sbList, int end, StringBuilder sb) {
+        while (index < end) {
+            //sb中为空时，就是没有基数，要添加基数
+            if (sb.length() == 0) {
+                //基数为分数时
+                if (sbList.get(index).lastIndexOf("/") != -1) {
+                    Matcher m1 = TEMP.matcher(sbList.get(index));
+                    if (m1.matches()) {
+                        Matcher m2 = TEMP.matcher(sbList.get(index + 1));
+                        //上面是分母，下面是分子
+                        int b = Integer.parseInt(m1.group(1));
+                        int a = Integer.parseInt(m1.group(3));
+                        if (m2.matches()) {
+                            int d = Integer.parseInt(m2.group(1));
+                            int c = Integer.parseInt(m2.group(3));
+                            //  b/a + d/c = bc+ad / ac
+                            sb.append(b * c + a * d).append("/").append(a * c);
+                            index++;
+                        }
+                    }
+                } else {
+                    //为整数，且sb中无任何值，直接添加
+                    sb.append(getCoefficient(sbList.get(index).toString()));
+                }
+            }
+            //sb不为空，说明有基数
+            else {
+                //基数为分数时
+                if (sb.lastIndexOf("/") != -1) {
+                    //加数为分数时
+                    if (sbList.get(index).lastIndexOf("/") != -1) {
+                        Matcher m1 = TEMP.matcher(sb);
+                        if (m1.matches()) {
+                            int b = Integer.parseInt(m1.group(1));
+                            int a = Integer.parseInt(m1.group(3));
+                            Matcher m2 = TEMP.matcher(sbList.get(index));
+                            if (m2.matches()) {
+                                int d = Integer.parseInt(m2.group(1));
+                                int c = Integer.parseInt(m2.group(3));
+                                int b1 = b * c + a * d;
+                                int b2 = a * c;
+                                int z = getMaxCommonFactor(b1, b2);
+                                if (z < 0) z *= -1;
+                                sb = new StringBuilder().append(b1 / z).append('/').append(b2 / z);
+                            }
+                        }
+                    } else {
+                        //加数不是分数时
+                        if (sbList.get(index).lastIndexOf("x") != -1) {
+                            Matcher m1 = TEMP.matcher(sb);
+                            if (m1.matches()) {
+                                int b = Integer.parseInt(m1.group(1));
+                                int a = Integer.parseInt(m1.group(3));
+                                int d = getCoefficient(sbList.get(index).toString());
+                                int b1 = b + a * d;
+                                int z = getMaxCommonFactor(b1, a);
+                                if (z < 0) z *= -1;
+                                sb = new StringBuilder().append(b1 / z).append('/').append(a / z);
+                            }
+                        }
+                    }
+                } else {
+                    //基数不是分数时且是关于x的单项式
+                    if (sb.lastIndexOf("x") != -1) {
+                        if (sbList.get(index).lastIndexOf("/") != -1) {
+                            //加数为分数时
+                            Matcher m1 = TEMP.matcher(sbList.get(index));
+                            if (m1.matches()) {
+                                int b = getCoefficient(sb.toString());
+                                int d = Integer.parseInt(m1.group(1));
+                                int c = Integer.parseInt(m1.group(3));
+                                int b1 = b * c + d;
+                                int z = getMaxCommonFactor(b1, c);
+                                if (z < 0) z *= -1;
+                                sb = new StringBuilder().append(b1 / z).append('/').append(c / z);
+                            }
+                        } else {
+                            //加数不是分数时
+                            sb = new StringBuilder().append(getCoefficient(sbList.get(index).toString()) + getCoefficient(sb.toString()));
+                        }
+                    } else {
+                        //基数不是分数时且仅为常数
+                        sb = new StringBuilder().append(getCoefficient(sbList.get(index).toString()) + getCoefficient(sb.toString()));
+                    }
+                }
+            }
+            index++;
+        }
+        return sb;
+    }
 
     /**
      * 生成拉格朗日插值公式分子部分
@@ -346,39 +235,57 @@ public class Demo {
      * @return 乘上系数后的多项式方程
      */
     static String[] multiplyCoefficient(String[] resultEquations, int value) {
+        //如果系数为1，则直接返回原式
         if (value == 1)
             return resultEquations;
+        //系数为0，直接返回0数组
+        if (value == 0) {
+            String[] returnArr = new String[resultEquations.length];
+            Arrays.fill(returnArr, "0");
+            return returnArr;
+        }
         //用于返回的数组
         String[] returnArr = new String[resultEquations.length];
-        //重新提取系数
+        //分子数组
         int[] arr1 = new int[resultEquations.length];
+        //分母数组
         int[] arr2 = new int[resultEquations.length];
-        //对系数乘以一个系数再次化简
+        //对式子所有分子乘上系数
         for (int i = 0; i < resultEquations.length; i++) {
             Matcher matcher = TEMP.matcher(resultEquations[i]);
+            //如果是分数，则1为分子，3为分母，分子乘上系数即可
             if (matcher.matches()) {
                 arr1[i] = Integer.parseInt(matcher.group(1)) * value;
                 arr2[i] = Integer.parseInt(matcher.group(3));
             } else {
+                //如果仅为整数则直接转换
                 if (!resultEquations[i].contains("x")) {
                     arr1[i] = Integer.parseInt(resultEquations[i]) * value;
                 } else {
+                    //如果为带未知数的整数，则要使用提取系数
                     arr1[i] = getCoefficient(resultEquations[i]) * value;
                 }
+                //整数分母为1
                 arr2[i] = 1;
             }
         }
+        //化简除新分数
         for (int i = 0; i < resultEquations.length; i++) {
             StringBuilder sb = new StringBuilder();
             int z = getMaxCommonFactor(arr1[i], arr2[i]);
             if (z < 0) z = -z;
+            //分数
             if (arr2[i] != 1)
                 sb.append(arr1[i] / z).append('/').append(arr2[i] / z);
+                //整数
             else
                 sb.append(arr1[i] / z);
+            //分数
             if (resultEquations[i].contains("/")) {
+                //直接替换分数部分，不需要纠结正负号
                 returnArr[i] = resultEquations[i].replaceFirst(SB.pattern(), sb.toString());
             } else {
+                //直接替换整数部分
                 returnArr[i] = resultEquations[i].replaceFirst("-\\d+|\\d+", sb.toString());
             }
         }
@@ -410,8 +317,9 @@ public class Demo {
         StringBuilder sb = new StringBuilder();
         //对系数乘以一个系数再次化简
         for (int i = 0; i < coefficientArr.length; i++) {
-            //让最大公约数保证符号只与x有关
-            int z = getMaxCommonFactor(coefficientArr[i] > 0 ? coefficientArr[i] : -coefficientArr[i], x);
+            //最大公约数的符号只与x有关
+            int z = getMaxCommonFactor(coefficientArr[i], x);
+            //未知数x
             String xFactor = getXFactor(resultEquations[i]);
             if (coefficientArr[i] % x == 0) {
                 //能整除时，不需要管正负号
@@ -728,7 +636,7 @@ public class Demo {
      */
     static int getNum(StringBuilder sb) {
         //先判断带X且系数不为1
-        Matcher m1 = EXISTS_X.matcher(sb.toString());
+        Matcher m1 = GET_COEFFICIENT_X_POWER.matcher(sb.toString());
         if (m1.matches()) {
             return Integer.parseInt(m1.group(3));
         }
@@ -775,7 +683,7 @@ public class Demo {
      */
     static void setPowerMap(int index, String str, Map<Integer, Integer> map) {
         //先判断带X且系数不为1
-        Matcher m1 = EXISTS_X.matcher(str);
+        Matcher m1 = GET_COEFFICIENT_X_POWER.matcher(str);
         if (m1.matches()) {
             map.put(index, Integer.parseInt(m1.group(3)));
             return;
@@ -797,7 +705,7 @@ public class Demo {
      */
     static int getCoefficient(String str) {
         //先判断带X且系数不为1
-        Matcher m1 = EXISTS_X.matcher(str);
+        Matcher m1 = GET_COEFFICIENT_X_POWER.matcher(str);
         if (m1.matches()) {
             return Integer.parseInt(m1.group(1));
         }
